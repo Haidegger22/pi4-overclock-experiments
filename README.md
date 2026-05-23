@@ -7,26 +7,26 @@
 - **Плата:** Raspberry Pi 4 Model B Rev 1.5
 - **ОС:** Debian 13 (trixie), Raspberry Pi OS kernel 6.18.29
 - **Охлаждение:** радиатор + 2 вентилятора
-- **Блок питания:** UPS 5V 3A (2×18650)
+- **Блок питания:** UPS 5V 3A (2x18650)
 - **Нагрузка:** labwc (Wayland), wf-panel-pi, браузер (вкладки, YouTube)
-- **Дисплеи:** DSI 4.3" (800×480) + HDMI (1360×768)
+- **Дисплеи:** DSI 4.3" (800x480) + HDMI (1360x768)
 
 ## Сводка настроек
 
 | Компонент | Stock | Итоговый разгон | Прирост |
 |-----------|------|----------------|---------|
 | **CPU** (arm_freq) | 1.8 GHz | **2.0 GHz** | +11% |
-| **GPU** (gpu_freq) | 500 MHz | **750 MHz** | +50% |
+| **GPU** (gpu_freq) | 500 MHz | **700 MHz** | +40% |
 | **Core** (core_freq) | 500 MHz | **550 MHz** | +10% |
 | **Напряжение** (over_voltage) | 0 | **6** | безопасно |
-| **Температура макс** (100% CPU+GPU) | ~50°C | **~68°C** | отлично |
+| **Температура макс** (100% CPU+GPU) | ~50C | **~65C** | отлично |
 | **Троттлинг** | 0 | **0** | ни разу |
 
 ## config.txt (итоговый рабочий)
 
 ```ini
 arm_freq=2000
-gpu_freq=750
+gpu_freq=700
 over_voltage=6
 core_freq=550
 temp_limit=85
@@ -36,7 +36,7 @@ temp_limit=85
 
 ### Этап 1: CPU 2.0 GHz + GPU 600 + over_voltage=2
 ```ini
-arm_freq=2000    ❌ — система не загрузилась
+arm_freq=2000    -- система не загрузилась :(
 gpu_freq=600
 over_voltage=2
 core_freq=550
@@ -45,25 +45,25 @@ core_freq=550
 
 ### Этап 2: CPU 1.9 GHz + GPU 550 + over_voltage=4
 ```ini
-arm_freq=1900    ✅ — стабильно
+arm_freq=1900    -- стабильно
 gpu_freq=550
 over_voltage=4
 core_freq=525
 temp_limit=85
 ```
-**Результат:** загрузилась. Температура ~50°C. Работает.
+**Результат:** загрузилась. Температура ~50C. Работает.
 
 ### Этап 3: CPU 2.0 GHz + GPU 600 + over_voltage=6
 ```ini
-arm_freq=2000    ✅ — взлетело!
+arm_freq=2000    -- взлетело!
 gpu_freq=600
 over_voltage=6
 core_freq=550
 temp_limit=85
 ```
-**Результат:** загрузилась. Температура ~53°C. Стабильно.
+**Результат:** загрузилась. Температура ~53C. Стабильно.
 
-### Этап 4: GPU 750 (повышение GPU на том же CPU)
+### Этап 4: GPU 750 (повышение GPU)
 ```ini
 arm_freq=2000
 gpu_freq=750
@@ -71,7 +71,8 @@ over_voltage=6
 core_freq=550
 temp_limit=85
 ```
-**Результат:** отличная стабильность, температура ~57°C. Браузер заметно шустрее.
+**Результат:** загрузилась. Температура ~57C. Браузер шустрее.
+**Спустя час:** GPU (V3D) начал виснуть (ошибка 0x00001000, Resetting GPU for hang). 750 MHz нестабилен.
 
 ### Этап 5: GPU 850 + Core 600 (потолок)
 ```ini
@@ -82,37 +83,52 @@ core_freq=600
 temp_limit=85
 ```
 **Результат:**
-- GPU (V3D): 850 MHz стабильно
+- GPU (V3D): 850 MHz стабильно в простое, но декодер нестабилен
 - Core: 425 MHz по факту (настройка не применилась)
-- YouTube зависал — вероятно, видео-декодер (H264/ISP) нестабилен на 850 MHz
-- USB-ошибки: `cannot get freq at ep 0x82` — core_freq=600 влиял на USB-шину
+- YouTube зависал
+- USB-ошибки: cannot get freq at ep 0x82
 - **Система зависла**, watchdog (1 мин) перезагрузил
 
-### Финальный этап: GPU 750 + Core 550
+### Этап 6: GPU 700 (стабильный финал)
 ```ini
-arm_freq=2000    ✅
-gpu_freq=750     ✅
-over_voltage=6   ✅
-core_freq=550    ✅
-temp_limit=85    ✅
+arm_freq=2000    -- стабильно
+gpu_freq=700     -- стабильно
+over_voltage=6   -- безопасно
+core_freq=550    -- стабильно
+temp_limit=85    -- запас
 ```
-**Результат:** стабильно, YouTube работает, браузер быстрый. Финальный конфиг.
+**Результат:**
+- V3D hang счётчик: 0
+- Температура: ~60C под нагрузкой
+- YouTube работает, браузер быстрый
+- **Стабильно. Финальный конфиг.**
+
+## Почему 750 MHz не взлетел
+
+На этом экземпляре Pi4 (rev 1.5) GPU V3D на 750 MHz стабилен в простое, но под реальной нагрузкой (WebGL, браузер) через 30-60 минут начинает виснуть каждую секунду:
+
+```
+v3d fec00000.v3d: *ERROR* V3D_ERR_STAT: 0x00001000
+v3d fec00000.v3d: *ERROR* Resetting GPU for hang.
+```
+
+Драйвер сбрасывает GPU, но цикл повторяется. 700 MHz — стабильный потолок для этого экземпляра.
 
 ## Детали
 
-### Теория разгона Pi4
+### Параметры config.txt
 
 | Параметр | Что делает | Безопасный предел |
 |----------|-----------|-------------------|
-| `arm_freq` | Частота CPU (4×Cortex-A72) | до 2.0-2.15 GHz |
-| `gpu_freq` | Частота GPU (V3D, H264, ISP) | до 750-800 MHz |
-| `core_freq` | Частота шины SoC (L2, memory controller, USB) | до 550-600 MHz |
-| `over_voltage` | Напряжение ядра (+0.025V/шаг) | 0-6 (безопасный) |
+| arm_freq | Частота CPU (4x Cortex-A72) | до 2.0-2.15 GHz |
+| gpu_freq | Частота GPU (V3D, H264, ISP) | до 700-750 MHz |
+| core_freq | Частота шины SoC (L2, USB) | до 550-600 MHz |
+| over_voltage | Напряжение ядра (+0.025V/шаг) | 0-6 (безопасный) |
 
 **Важно:**
-- `over_voltage` выше 6 ставит перманентный бит в SoC и аннулирует гарантию
-- Каждые +10°C сокращают срок жизни CPU вдвое (правило Аррениуса)
-- `force_turbo=1` не рекомендуется — отключает динамическое управление частотой
+- over_voltage выше 6 ставит перманентный бит в SoC (аннулирует гарантию)
+- Каждые +10C сокращают срок жизни CPU вдвое
+- force_turbo=1 не рекомендуется (отключает динамику)
 
 ### Диагностика
 
@@ -121,30 +137,25 @@ temp_limit=85    ✅
 vcgencmd measure_clock arm
 vcgencmd measure_clock v3d
 vcgencmd measure_clock core
-vcgencmd measure_clock h264
-vcgencmd measure_clock isp
 
 # Температура и напряжение
 vcgencmd measure_temp
 vcgencmd measure_volts core
 vcgencmd get_throttled
 
-# Разбор throttled (битовая маска)
-# 0x0 = всё ок
-# 0x50000 = был троттлинг
-# 0x80000 = было отключение питания
+# Проверка GPU hang (если >0 -- GPU нестабилен)
+dmesg | grep -c 'Resetting GPU for hang'
 ```
 
 ### Восстановление после неудачного разгона
 
-1. Вынуть SD-карту из Pi4
-2. Вставить в другой компьютер (или USB-кардридер)
-3. Отредактировать `/boot/firmware/config.txt` — закомментировать или удалить строки разгона
+1. Вынуть SD-карту
+2. Вставить в другой компьютер / кардридер
+3. Отредактировать /boot/firmware/config.txt — убрать/закомментировать строки разгона
 4. Вставить обратно, загрузиться
-5. Снизить частоту или поднять напряжение
 
 ## Ссылки
 
-- [Raspberry Pi config.txt docs](https://www.raspberrypi.com/documentation/computers/config_txt.html)
-- [Q-engineering: Overclocking Pi4](https://www.qengineering.eu/overclocking-the-raspberry-pi-4.html)
-- [jerrf010/Raspberry-Pi-4-Config-Overclock (GitHub)](https://github.com/jerrf010/Raspberry-Pi-4-Config-Overclock-)
+- Raspberry Pi config.txt docs: https://www.raspberrypi.com/documentation/computers/config_txt.html
+- Q-engineering: https://www.qengineering.eu/overclocking-the-raspberry-pi-4.html
+- jerrf010 config: https://github.com/jerrf010/Raspberry-Pi-4-Config-Overclock-

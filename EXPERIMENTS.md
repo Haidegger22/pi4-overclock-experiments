@@ -16,9 +16,9 @@ core_freq=550
 temp_limit=85
 ```
 
-**Result: ❌ System did not boot**
+**Result: -- System did not boot**
 
-Pi4 became completely unresponsive — no ping, no SSH. 
+Pi4 became completely unresponsive -- no ping, no SSH.
 Recovery: removed SD card, edited config.txt on Pi5 (another machine), removed overclock lines.
 This chip cannot handle 2.0 GHz at only +0.05V over stock.
 
@@ -35,10 +35,10 @@ core_freq=525
 temp_limit=85
 ```
 
-**Result: ✅ Stable**
+**Result: -- Stable**
 
-Booted successfully. Temperatures around 50°C under light load.
-Entry-level overclock — safe for any Pi4.
+Booted successfully. Temperatures around 50C under light load.
+Entry-level overclock -- safe for any Pi4.
 
 ---
 
@@ -53,13 +53,10 @@ core_freq=550
 temp_limit=85
 ```
 
-**Result: ✅ Stable**
+**Result: -- Stable**
 
-2.0 GHz worked with over_voltage=6 (+0.15V). Temperature ~53°C.
+2.0 GHz worked with over_voltage=6 (+0.15V). Temperature ~53C.
 No throttling. This confirms this chip needs higher voltage for 2.0 GHz.
-
-**Observation:** Initial 2.0 GHz + ov=2 failed, but 2.0 GHz + ov=6 passed.
-The chip is a "cold" sample that needs more voltage.
 
 ---
 
@@ -74,10 +71,18 @@ core_freq=550
 temp_limit=85
 ```
 
-**Result: ✅ Stable**
+**Result: -- Unstable after ~1 hour**
 
-GPU bumped from 600 to 750 MHz. Temperature rose to ~57°C.
-Browser UI rendering noticeably snappier. No instability.
+GPU V3D at 750 MHz works fine initially. Temperature ~57C. Browser UI snappier.
+After about 1 hour of use, V3D starts hanging every second:
+
+```
+v3d fec00000.v3d: *ERROR* V3D_ERR_STAT: 0x00001000
+v3d fec00000.v3d: *ERROR* Resetting GPU for hang.
+```
+
+The driver resets the GPU, but the hang loop continues indefinitely.
+Occurs under real workloads (browser, WebGL), not during idle.
 
 ---
 
@@ -92,45 +97,48 @@ core_freq=600
 temp_limit=85
 ```
 
-**Result: ❌ Unstable**
+**Result: -- Unstable**
 
 - GPU V3D: confirmed 850 MHz
-- Core: showed 425 MHz (setting did not apply — possibly driver limitation)
-- YouTube video page failed to load — GPU video decoder (H264/ISP) unstable
-- USB errors in dmesg: `cannot get freq at ep 0x82` — core_freq=600 caused USB instability
-- **System hung completely** — hardware watchdog (1 min timeout) force-rebooted
-
-**Lessons learned:**
-- 850 MHz is too high for the video decoder (H264/ISP) which shares `gpu_freq`
-- core_freq=600 destabilizes the USB controller on this chip
-- The hardware watchdog (bcm2835-wdt) saved us from a dead hang
+- Core: showed 425 MHz (setting did not apply -- driver limitation)
+- YouTube video page failed to load -- GPU video decoder (H264/ISP) unstable
+- USB errors in dmesg: cannot get freq at ep 0x82 -- core_freq=600 caused USB instability
+- **System hung completely** -- hardware watchdog (1 min timeout) force-rebooted
 
 ---
 
-### Final — GPU 750 MHz + Core 550 MHz (stable workstation)
+### Final -- GPU 700 MHz + Core 550 MHz (stable workstation)
 
 **Settings:**
 ```
 arm_freq=2000
-gpu_freq=750
+gpu_freq=700
 over_voltage=6
 core_freq=550
 temp_limit=85
 ```
 
-**Result: ✅ Fully stable**
+**Result: -- Fully stable**
 
-- CPU 2.0 GHz, GPU 750 MHz, Core 550 MHz
+- CPU 2.0 GHz, GPU 700 MHz, Core 550 MHz
+- V3D hang count: 0 (no GPU resets)
 - YouTube, browser, all apps work
-- Temperature under full load (CPU 100% + V3D): ~68°C
+- Temperature under full load (CPU 100% + V3D): ~65C
 - No throttling (throttled=0x0)
-- Cooler than stock under load
 - UPS battery life impact: ~15% reduction (acceptable)
+
+## Key findings
+
+1. **This Pi4 rev 1.5 needs over_voltage=6 for 2.0 GHz** -- ov=2 was insufficient
+2. **GPU max stable frequency: 700 MHz** -- 750 MHz eventually hangs V3D under load
+3. **core_freq=600 destabilizes USB** -- error: "cannot get freq at ep 0x82"
+4. **Hardware watchdog** (bcm2835-wdt, 1 min timeout) automatically reboots on complete hang
+5. **V3D hang test**: `dmesg | grep -c 'Resetting GPU for hang'` -- should be 0
 
 ## Benchmark (informal)
 
-| Test | Stock (1.8 GHz) | Overclocked (2.0 GHz + 750 GPU) | Improvement |
+| Test | Stock (1.8 GHz) | Overclocked (2.0 GHz + 700 GPU) | Improvement |
 |------|----------------|-------------------------------|-------------|
 | Browser tab open | 1.8s | 1.4s | ~22% |
 | YouTube page load | 3.2s | 2.5s | ~22% |
-| UI responsiveness | baseline | noticeably smoother | — |
+| UI responsiveness | baseline | noticeably smoother | -- |
