@@ -1,0 +1,12 @@
+# Final stable overclock config for Raspberry Pi 4
+# arm_freq=2000, gpu_freq=750, core_freq=550, over_voltage=6
+#
+# Hardware: Pi4 Model B Rev 1.5, 8GB
+# Cooling: heatsink + 2 fans
+# OS: Debian 13 (trixie), kernel 6.18.29
+
+arm_freq=2000
+gpu_freq=750
+over_voltage=6
+core_freq=550
+temp_limit=85
