@@ -107,25 +107,54 @@ temp_limit=85
 
 ---
 
-### Final -- GPU 700 MHz + Core 550 MHz (stable workstation)
+### Trial 6 — GPU 600 MHz + over_voltage=4 (labwc stability fix)
+
+**Date:** 2026-05-27
 
 **Settings:**
 ```
 arm_freq=2000
-gpu_freq=700
-over_voltage=6
+gpu_freq=600
+over_voltage=4
 core_freq=550
 temp_limit=85
+# v3d_freq not set — inherits gpu_freq=600
 ```
 
-**Result: -- Fully stable**
+**Context:** After prolonged use, labwc (Wayland compositor) would occasionally freeze
+on dual-display setup (DSI 4.3" + HDMI). Suspected cause: over_voltage=6 with
+v3d_freq=700 pushing GPU voltage regulator to instability zone.
 
-- CPU 2.0 GHz, GPU 700 MHz, Core 550 MHz
-- V3D hang count: 0 (no GPU resets)
-- YouTube, browser, all apps work
-- Temperature under full load (CPU 100% + V3D): ~65C
+**Result: -- Fully stable (new final)**
+
+- CPU 2.0 GHz, GPU 600 MHz, V3D inherits 600 MHz
+- labwc: no freezes after 24h+ of testing (previously froze every few hours)
+- YouTube 1080p: smooth playback after reboot
+- Temperature under load: ~60C
 - No throttling (throttled=0x0)
-- UPS battery life impact: ~15% reduction (acceptable)
+- PSU noise immunity: verified on UPS 5V 3A (2×18650)
+
+### Final (revised) — GPU 600 MHz + Core 550 MHz + over_voltage=4 (stable workstation)
+
+**Settings:**
+```
+arm_freq=2000
+gpu_freq=600
+over_voltage=4
+core_freq=550
+temp_limit=85
+# v3d_freq removed — inherits gpu_freq=600
+```
+
+**Result: -- Fully stable, labwc no longer freezes**
+
+- CPU 2.0 GHz, GPU 600 MHz, Core 550 MHz
+- V3D hang count: 0 (no GPU resets)
+- labwc: stable on DSI + HDMI dual display
+- YouTube 1080p, browser, all apps work
+- Temperature under full load (CPU 100% + V3D): ~60C
+- No throttling (throttled=0x0)
+- **UPS 5V (2×18650):** verified stable — all settings work within UPS power budget
 
 ## Key findings
 
