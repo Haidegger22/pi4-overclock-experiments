@@ -1,16 +1,21 @@
 # Final stable overclock config for Raspberry Pi 4
-# arm_freq=2000, gpu_freq=600, core_freq=550, over_voltage=4 (no v3d_freq override)
+# arm_freq=2100, v3d_freq=700, core_freq=600, over_voltage=6
 #
 # Hardware: Pi4 Model B Rev 1.5, 8GB
 # Cooling: heatsink + 2 fans
-# PSU: UPS 5V 3A (2x18650 in series)
+# PSU: UPS 5V 3A (2x18650 in series), or direct 5V 3A PSU
 # OS: Debian 13 (trixie), kernel 6.18.29
+# GPU driver: vc4-fkms-v3d (stable) — NOT kms (causes RCU stalls)
 #
-# NOTE: These settings are verified stable with a 5V UPS (2×18650).
-# Higher voltages or GPU clocks may cause labwc instability on dual-display setups.
+# CRITICAL:
+# - gpu_freq NOT USED (overclocks H264/ISP/HEVC → instability)
+# - v3d_freq used instead (overclocks only 3D block)
+# - force_turbo NOT USED (allows dynamic frequency scaling)
+# - Chromium flags: #ignore-gpu-blocklist=Disabled, #enable-accelerated-video-decode=Disabled
 
-arm_freq=2000
-gpu_freq=600
-over_voltage=4
-core_freq=550
+arm_freq=2100
+over_voltage=6
+core_freq=600
+v3d_freq=700
 temp_limit=85
+gpu_mem=128

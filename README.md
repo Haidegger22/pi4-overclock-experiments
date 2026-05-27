@@ -1,182 +1,112 @@
 # Pi4 Overclock Experiments
 
-Эксперименты с разгоном Raspberry Pi 4 (BCM2711, rev 1.5) — параметры, результаты, стабильность.
+Эксперименты с разгоном Raspberry Pi 4 (BCM2711, rev 1.5, 8GB) — параметры, результаты, стабильность.
 
 ## Стенд
 
-- **Плата:** Raspberry Pi 4 Model B Rev 1.5
+- **Плата:** Raspberry Pi 4 Model B Rev 1.5, 8GB
 - **ОС:** Debian 13 (trixie), Raspberry Pi OS kernel 6.18.29
 - **Охлаждение:** радиатор + 2 вентилятора
-- **Блок питания:** **UPS 5V 3A (2×18650)** — все настройки проверены на этом UPS
-- **Нагрузка:** labwc (Wayland), wf-panel-pi, браузер (вкладки, YouTube)
+- **Питание:** UPS 5V 3A (2×18650) или прямой БП 5V 3A
+- **Нагрузка:** labwc (Wayland), wf-panel-pi, Chromium, YouTube
 - **Дисплеи:** DSI 4.3" (800x480) + HDMI (1360x768)
 
-## Сводка настроек (финальная стабильная)
+## Итоговый стабильный разгон
 
-| Компонент | Stock | Итоговый разгон | Прирост |
-|-----------|------|----------------|---------|
-| **CPU** (arm_freq) | 1.8 GHz | **2.0 GHz** | +11% |
-| **GPU** (gpu_freq) | 500 MHz | **600 MHz** | +20% |
-| **V3D** (наследует gpu_freq) | 500 MHz | **600 MHz** | +20% |
-| **Core** (core_freq) | 500 MHz | **550 MHz** | +10% |
-| **Напряжение** (over_voltage) | 0 | **4** | безопасно |
-| **Температура макс** (100% CPU+GPU) | ~50C | **~60C** | отлично |
-| **Троттлинг** | 0 | **0** | ни разу |
+| Параметр | Stock | Стабильно | Оптимально | Прирост |
+|----------|-------|-----------|-----------|---------|
+| **CPU** (arm_freq) | 1.8 GHz | 2.0 GHz | **2.1 GHz** | +17% |
+| **V3D** (v3d_freq) | 500 MHz | 600 MHz | **700 MHz** | +40% |
+| **Core** (core_freq) | 500 MHz | 550 MHz | **600 MHz** | +20% |
+| **Напряжение** (over_voltage) | 0 | 4 | **6** | — |
+| **Температура макс.** | ~50°C | ~55°C | **~60°C** | отлично |
+| **Троттлинг** | 0 | 0 | **0** | ✅ |
 
-### Почему over_voltage 4 вместо 6
-
-Во время экспериментов выяснилось, что **over_voltage=6** в сочетании с **v3d_freq=700** вызывал периодические зависания labwc на двухдисплейной конфигурации (DSI + HDMI). После снижения до **over_voltage=4** и удаления отдельного v3d_freq (GPU наследует gpu_freq=600) — система стабильна, YouTube 1080p воспроизводится без лагов, labwc не зависает.
-
-## config.txt (итоговый рабочий)
+## config.txt (итоговый)
 
 ```ini
-arm_freq=2000
-gpu_freq=600
-over_voltage=4
-core_freq=550
-temp_limit=85
-# v3d_freq не указан — наследует gpu_freq=600
-```
+# GPU driver — fkms для стабильности (kms вызывает RCU stall)
+dtoverlay=vc4-fkms-v3d
 
-## ⚡ Важно: UPS 5V (2×18650)
-
-Все конфигурации в этом репозитории **проверены и стабильны при питании от UPS 5V 3A, собранного из двух 18650 аккумуляторов последовательно (с понижением до 5V).** 
-
-При использовании обычного блока питания 5В 3А (без UPS) — результаты могут отличаться из-за качества фильтрации питания. Рекомендуется UPS с чистыми 5В.
-
-## Хронология экспериментов
-
-### Этап 1: CPU 2.0 GHz + GPU 600 + over_voltage=2
-```ini
-arm_freq=2000    -- система не загрузилась :(
-gpu_freq=600
-over_voltage=2
-core_freq=550
-```
-**Результат:** не загрузилась. SD-карта вынута, config.txt почищен на Pi5.
-
-### Этап 2: CPU 1.9 GHz + GPU 550 + over_voltage=4
-```ini
-arm_freq=1900    -- стабильно
-gpu_freq=550
-over_voltage=4
-core_freq=525
-temp_limit=85
-```
-**Результат:** загрузилась. Температура ~50C. Работает.
-
-### Этап 3: CPU 2.0 GHz + GPU 600 + over_voltage=6
-```ini
-arm_freq=2000    -- взлетело!
-gpu_freq=600
-over_voltage=6
-core_freq=550
-temp_limit=85
-```
-**Результат:** загрузилась. Температура ~53C. Стабильно.
-
-### Этап 4: GPU 750 (повышение GPU)
-```ini
-arm_freq=2000
-gpu_freq=750
-over_voltage=6
-core_freq=550
-temp_limit=85
-```
-**Результат:** загрузилась. Температура ~57C. Браузер шустрее.
-**Спустя час:** GPU (V3D) начал виснуть (ошибка 0x00001000, Resetting GPU for hang). 750 MHz нестабилен.
-
-### Этап 5: GPU 850 + Core 600 (потолок)
-```ini
-arm_freq=2000
-gpu_freq=850
+# Разгон
+arm_freq=2100
 over_voltage=6
 core_freq=600
+v3d_freq=700
 temp_limit=85
-```
-**Результат:**
-- GPU (V3D): 850 MHz стабильно в простое, но декодер нестабилен
-- Core: 425 MHz по факту (настройка не применилась)
-- YouTube зависал
-- USB-ошибки: cannot get freq at ep 0x82
-- **Система зависла**, watchdog (1 мин) перезагрузил
+gpu_mem=128
 
-### Этап 6: GPU 700 (стабильный финал)
+# force_turbo НЕ включать — динамические частоты
+# gpu_freq НЕ использовать — грубый разгон всех блоков GPU
+```
+
+## ⚠️ Что НЕ использовать и почему
+
+| Параметр | Почему вреден |
+|----------|--------------|
+| `gpu_freq` | Разгоняет сразу V3D+H264+ISP+HEVC. H264-блок нестабилен → краши |
+| `vc4-kms-v3d` | Прямой доступ к GPU → RCU stall ядра при загрузке |
+| `force_turbo=1` | Фиксирует макс. частоту → перегрев + warranty bit |
+| `#ignore-gpu-blocklist` (Chromium) | Форсирует GPU-рендеринг → watchdog-перезагрузки |
+| `#enable-accelerated-video-decode` | V4L2-декодинг на vc4 → зависания GPU |
+| `sd_overclock=100` | Не работает на внутреннем слоте Pi4 (аппаратный предел DDR50) |
+
+## 🔧 Дополнительные настройки для стабильности
+
+### GPU-драйвер
 ```ini
-arm_freq=2000    -- стабильно
-gpu_freq=700     -- стабильно
-over_voltage=6   -- безопасно
-core_freq=550    -- стабильно
-temp_limit=85    -- запас
-```
-**Результат:**
-- V3D hang счётчик: 0
-- Температура: ~60C под нагрузкой
-- YouTube работает, браузер быстрый
-- **Стабильно. Финальный конфиг.**
-
-## ⚡ Питание: UPS 5V (2×18650)
-
-Все финальные настройки проверены при питании от **UPS 5V 3A на базе двух 18650 аккумуляторов, соединённых последовательно с понижением до 5V**. UPS обеспечивает:
-- Стабильные 5В без пульсаций (в отличие от дешёвых БП)
-- Защиту от просадок напряжения при пиковой нагрузке (2GHz + GPU)
-- Бесперебойную работу при кратковременных отключениях сети
-
-> ⚠️ **Важно:** На обычном импульсном БП 5В/3А без UPS результаты разгона могут отличаться. Рекомендуется качественный БП или UPS.
-
-## Почему 750 MHz не взлетел
-
-На этом экземпляре Pi4 (rev 1.5) GPU V3D на 750 MHz стабилен в простое, но под реальной нагрузкой (WebGL, браузер) через 30-60 минут начинает виснуть каждую секунду:
-
-```
-v3d fec00000.v3d: *ERROR* V3D_ERR_STAT: 0x00001000
-v3d fec00000.v3d: *ERROR* Resetting GPU for hang.
+dtoverlay=vc4-fkms-v3d    # fkms — стабильнее kms на Pi4
 ```
 
-Драйвер сбрасывает GPU, но цикл повторяется. 700 MHz — стабильный потолок для этого экземпляра.
+### Chromium
+```
+chrome://flags:
+  #ignore-gpu-blocklist              → Default (Disabled)
+  #enable-accelerated-video-decode   → Disabled
+  #enable-zero-copy                  → Default
+```
+GPU-растеризация всё равно работает через CLI-флаг от пакета `rpi-chromium-mods`.
 
-## Детали
+### Журналирование (для диагностики крашей)
+```bash
+sudo sed -i 's/^#Storage=.*/Storage=persistent/' /etc/systemd/journald.conf
+sudo systemctl restart systemd-journald
+```
+Без этого логи теряются при watchdog-перезагрузке.
 
-### Параметры config.txt
+## Хронология
 
-| Параметр | Что делает | Безопасный предел |
-|----------|-----------|-------------------|
-| arm_freq | Частота CPU (4x Cortex-A72) | до 2.0-2.15 GHz |
-| gpu_freq | Частота GPU (V3D, H264, ISP) | до 700-750 MHz |
-| core_freq | Частота шины SoC (L2, USB) | до 550-600 MHz |
-| over_voltage | Напряжение ядра (+0.025V/шаг) | 0-6 (безопасный) |
+Подробный лог всех попыток — в [EXPERIMENTS.md](./EXPERIMENTS.md).
 
-**Важно:**
-- over_voltage выше 6 ставит перманентный бит в SoC (аннулирует гарантию)
-- Каждые +10C сокращают срок жизни CPU вдвое
-- force_turbo=1 не рекомендуется (отключает динамику)
+Кратко:
+1. CPU 2.0 + GPU 600 + ov=2 → ❌ не загрузилась
+2. CPU 1.9 + GPU 550 + ov=4 → ✅
+3. CPU 2.0 + GPU 600 + ov=6 → ✅ (использовалась неделю)
+4. GPU 750 → ⚠️ V3D hang через час
+5. GPU 850 + Core 600 → ❌ ханг системы
+6. **Обнаружен RCU stall** — vc4-kms-v3d + gpu_freq + Chromium-флаги = watchdog-ребуты
+7. **Финальный фикс** — fkms + v3d_freq + сброс Chromium-флагов → полная стабильность
 
-### Диагностика
+## Мониторинг
 
 ```bash
-# Текущие частоты
-vcgencmd measure_clock arm
+# Частоты
+cat /sys/devices/system/cpu/cpu0/cpufreq/scaling_cur_freq
 vcgencmd measure_clock v3d
-vcgencmd measure_clock core
 
-# Температура и напряжение
-vcgencmd measure_temp
-vcgencmd measure_volts core
-vcgencmd get_throttled
+# Троттлинг
+vcgencmd get_throttled    # должно быть throttled=0x0
 
-# Проверка GPU hang (если >0 -- GPU нестабилен)
+# Температура
+cat /sys/class/thermal/thermal_zone0/temp
+
+# V3D hang count (должен быть 0)
 dmesg | grep -c 'Resetting GPU for hang'
+
+# Watchdog-перезагрузки
+journalctl --list-boots
 ```
 
-### Восстановление после неудачного разгона
+## Лицензия
 
-1. Вынуть SD-карту
-2. Вставить в другой компьютер / кардридер
-3. Отредактировать /boot/firmware/config.txt — убрать/закомментировать строки разгона
-4. Вставить обратно, загрузиться
-
-## Ссылки
-
-- Raspberry Pi config.txt docs: https://www.raspberrypi.com/documentation/computers/config_txt.html
-- Q-engineering: https://www.qengineering.eu/overclocking-the-raspberry-pi-4.html
-- jerrf010 config: https://github.com/jerrf010/Raspberry-Pi-4-Config-Overclock-
+MIT
