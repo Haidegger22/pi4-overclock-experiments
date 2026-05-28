@@ -1,3 +1,6 @@
+# ⚠️ ВНИМАНИЕ: Этот конфиг ТОЛЬКО для Pi4 с активным охлаждением
+# (радиатор + 2 вентилятора)! Без охлаждения arm_freq≥2000 ведёт к краху.
+#
 # Final stable overclock config for Raspberry Pi 4
 # arm_freq=2100, v3d_freq=700, core_freq=600, over_voltage=6
 #
@@ -11,7 +14,12 @@
 # - gpu_freq NOT USED (overclocks H264/ISP/HEVC → instability)
 # - v3d_freq used instead (overclocks only 3D block)
 # - force_turbo NOT USED (allows dynamic frequency scaling)
+# - sd_overclock NOT USED — hardware-limited on internal Pi4 slot + causes SD errors
 # - Chromium flags: #ignore-gpu-blocklist=Disabled, #enable-accelerated-video-decode=Disabled
+#
+# For headless/server use WITHOUT active cooling, use SAFE config:
+#   arm_freq=1800, over_voltage=2, temp_limit=80, gpu_mem=16
+#   v3d_freq and core_freq can stay at stock (no GPU benefit headless)
 
 arm_freq=2100
 over_voltage=6

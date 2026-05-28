@@ -130,3 +130,37 @@ gpu_mem=128
 | Browser tab | 1.8s | 1.2s | ~33% |
 | YouTube load | 3.2s | 2.1s | ~34% |
 | UI feel | baseline | much smoother | — |
+
+---
+
+### Trial 9 — sd_overclock=100 instability
+
+**Date:** 2026-05-28
+
+**Settings:** arm_freq=2000, over_voltage=4, temp_limit=85
+
+**Added sd_overclock=100** for testing.
+
+**Result: ❌ Boot failures, black screen on cold start**
+
+On cold boot, Pi4 would show a black screen and hang. Removing `sd_overclock=100` and resetting config.txt on another machine would recover. The SD controller on Pi4 (BCM2711) has a hardware limitation at DDR50 (50 MHz), and forcing 100 MHz via dtparam causes initialization failures.
+
+**Fix:** Removed `sd_overclock=100`. Boot is stable again.
+
+---
+
+### Trial 10 — arm_freq=2000 без активного охлаждения
+
+**Date:** 2026-05-28
+
+**Settings:** arm_freq=2000, over_voltage=4, core_freq=550, temp_limit=85
+
+**Hardware:** Pi4 8GB, heatsink only (no fan), SD card, headless (OpenClaw AI agent)
+
+**Result: ❌ Random crashes under load, black screens on boot after heating cycles**
+
+Without active cooling, the SoC reached throttling temps (~85°C) within minutes under load. The repeated thermal cycling + voltage stress caused filesystem corruption on the SD card (dirty bits, orphaned inodes). Multiple fsck passes required.
+
+**Fix:** Lowered to `arm_freq=1800`, `over_voltage=2`, `temp_limit=80`. All issues resolved.
+
+**Lesson:** For headless/server Pi4 without active cooling, do not exceed **arm_freq=1800**. Active cooling (fans/heatsink) is mandatory for arm_freq ≥ 1900.
